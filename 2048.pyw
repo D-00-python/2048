@@ -17,13 +17,15 @@ class Background:
 
 class Tile:
     def __init__(self, pos):
-        self.spawn_time = time.time()
+        self.spawn_time = time.time() + 0.1 # spawn later
         self.move_time = self.merge_time = 0
         self.value = choice([2, 4]) # the value can be 2 or 4
         self.image = tile_shape(color(self.value))
         self.pos = self.prev_pos = pos
 
     def draw(self):
+        if time.time() - self.spawn_time < 0: # has not spawned yet, but exists
+            return
         if time.time() - self.spawn_time < 0.1:
             size = min(150, int((time.time() - self.spawn_time) * 1600))
             image = pygame.transform.scale(self.image, (size, size))
@@ -57,39 +59,10 @@ class Tile:
         self.prev_pos = self.pos
         self.pos = pos
 
-def find(pos):
-    for tile in tiles:
-        if tile.pos == pos:
-            return tile
-
-def add_tile(add=True): # add is to avoid adding another tile if nothig changed
-    empty = []
-    for x in range(4):
-        for y in range(4):
-            if find((x, y)) is None: # empty space
-                empty.append((x, y))
-
-    if len(empty):
-        if add:
-            tiles.append(Tile(choice(empty))) # add a tile
-    else:
-        can_merge = False # check for any possible move
-        for x in range(4):
-            for y in range(4):
-                value = find((x, y)).value
-                for x_, y_ in ([-1, 0], [0, -1], [1, 0], [0, 1]): # check for each tile if a neighbour has the same value
-                    neighbour = find((x + x_, y + y_))
-                    if neighbour:
-                        if neighbour.value == value:
-                            can_merge = True
-
-        if not can_merge:
-            global game_over
-            game_over = True # no place to add another tile
-
 def move_left():
     global score
     for y in range(4):
+        has_not_merged = True
         for x in range(4):
             tile = find((x, y))
             if tile: # if there is a tile to move
@@ -97,11 +70,12 @@ def move_left():
                 tiles_to_left = [find((x_, y)) for x_ in range(x) if find((x_, y))]
                 if len(tiles_to_left):
                     tile_ = tiles_to_left[-1]
-                    if tile_.value == tile.value: # merge together
+                    if tile_.value == tile.value and has_not_merged: # merge together, only one merge per line
                         tiles.remove(tile_)
                         tile.value *= 2
                         score += tile.value
                         merge = True
+                        has_not_merged = False
                         tile.image = tile_shape(color(tile.value))
                         final_pos = tile_.pos
                     else: # stop next to it
@@ -113,6 +87,7 @@ def move_left():
 def move_right():
     global score
     for y in range(4):
+        has_not_merged = True
         for x in range(3, -1, -1):
             tile = find((x, y))
             if tile:
@@ -120,11 +95,12 @@ def move_right():
                 tiles_to_right = [find((x_, y)) for x_ in range(x + 1, 4) if find((x_, y))]
                 if len(tiles_to_right):
                     tile_ = tiles_to_right[0]
-                    if tile_.value == tile.value:
+                    if tile_.value == tile.value and has_not_merged:
                         tiles.remove(tile_)
                         tile.value *= 2
                         score += tile.value
                         merge = True
+                        has_not_merged = False
                         tile.image = tile_shape(color(tile.value))
                         final_pos = tile_.pos
                     else:
@@ -136,6 +112,7 @@ def move_right():
 def move_up():
     global score
     for x in range(4):
+        has_not_merged = True
         for y in range(4):
             tile = find((x, y))
             if tile:
@@ -143,11 +120,12 @@ def move_up():
                 tiles_to_top = [find((x, y_)) for y_ in range(y) if find((x, y_))]
                 if len(tiles_to_top):
                     tile_ = tiles_to_top[-1]
-                    if tile_.value == tile.value: # merge together
+                    if tile_.value == tile.value and has_not_merged:
                         tiles.remove(tile_)
                         tile.value *= 2
                         score += tile.value
                         merge = True
+                        has_not_merged = False
                         tile.image = tile_shape(color(tile.value))
                         final_pos = tile_.pos
                     else:
@@ -159,6 +137,7 @@ def move_up():
 def move_down():
     global score
     for x in range(4):
+        has_not_merged = True
         for y in range(3, -1, -1):
             tile = find((x, y))
             if tile:
@@ -171,6 +150,7 @@ def move_down():
                         tile.value *= 2
                         score += tile.value
                         merge = True
+                        has_not_merged = False
                         tile.image = tile_shape(color(tile.value))
                         final_pos = tile_.pos
                     else:
@@ -193,6 +173,36 @@ def user_control(events):
                 move_down()
             
             add_tile([tile.pos for tile in tiles] != grid)
+
+def find(pos):
+    for tile in tiles:
+        if tile.pos == pos:
+            return tile
+
+def add_tile(add=True): # add is to avoid adding another tile if nothig changed
+    empty = []
+    for x in range(4):
+        for y in range(4):
+            if find((x, y)) is None: # empty space
+                empty.append((x, y))
+
+    if len(empty):
+        if add:
+            tiles.append(Tile(choice(empty))) # add a tile
+    if len(empty) <= add: # do not use else because a tile has been added
+        can_merge = False # check for any possible move
+        for x in range(4):
+            for y in range(4):
+                value = find((x, y)).value
+                for x_, y_ in ([-1, 0], [0, -1], [1, 0], [0, 1]): # check for each tile if a neighbour has the same value
+                    neighbour = find((x + x_, y + y_))
+                    if neighbour:
+                        if neighbour.value == value:
+                            can_merge = True
+
+        if not can_merge:
+            global game_over
+            game_over = True # no place to add another tile
 
 def color(value):
     power = log2(value)
